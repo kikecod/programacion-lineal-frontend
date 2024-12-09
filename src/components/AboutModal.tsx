@@ -43,7 +43,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <li>Enrique Rafael Fernandez Chiri</li>
             <li>Estefani Camacho</li>
             <li>Carlitos Burgoa</li>
-            <li>Luz</li>
+            <li>Luz Belen Chavez Patzi</li>
             <li>Maritza Zarate Paco</li>
             <li>Lizbeth Pilco</li>
           </ol>
