@@ -9,8 +9,8 @@ import { useAuthStore } from '../store/authStore';
 import { ResultsTable } from './ResultsTable';
 
 const configSchema = z.object({
-  numVariables: z.number().min(1).max(10),
-  numRestricciones: z.number().min(1).max(20),
+  numVariables: z.number().min(1).max(20),
+  numRestricciones: z.number().min(1).max(30),
   tipo: z.enum(['maximizar', 'minimizar']),
 });
 
