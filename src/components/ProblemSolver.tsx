@@ -14,11 +14,42 @@ const configSchema = z.object({
   tipo: z.enum(['maximizar', 'minimizar']),
 });
 
-export const ProblemSolver: React.FC = () => {
+export const ProblemSolver: React.FC<{ selectedProblem?: any }> = ({ selectedProblem }) => {
   const [step, setStep] = React.useState(1);
   const [config, setConfig] = React.useState<Problem['config'] | null>(null);
   const [result, setResult] = React.useState<SolverResult | null>(null);
   const { user } = useAuthStore();
+
+  React.useEffect(() => {
+    if (selectedProblem) {
+      try {
+        const funcionObjetivo = JSON.parse(selectedProblem.funcionObjetivo);
+        const restricciones = JSON.parse(selectedProblem.restricciones);
+        const variablesSolucion = JSON.parse(selectedProblem.variablesSolucion);
+        const restriccionesDetalles = JSON.parse(selectedProblem.restriccionesDetalles);
+        const rangosCoeficientes = selectedProblem.rangosCoeficientes ? JSON.parse(selectedProblem.rangosCoeficientes) : [];
+        const rangosLadoDerecho = selectedProblem.rangosLadoDerecho ? JSON.parse(selectedProblem.rangosLadoDerecho) : [];
+
+        setConfig({
+          numVariables: funcionObjetivo.length,
+          numRestricciones: restricciones.length,
+          tipo: selectedProblem.tipoProblema,
+        });
+
+        setResult({
+          valorFuncionObjetivo: selectedProblem.valorSolucion,
+          variables: variablesSolucion,
+          restricciones: restriccionesDetalles,
+          rangosCoeficientes,
+          rangosLadoDerecho,
+        });
+
+        setStep(3);
+      } catch (error) {
+        console.error('Error parsing problem data:', error);
+      }
+    }
+  }, [selectedProblem]);
 
   const configForm = useForm({
     resolver: zodResolver(configSchema),
@@ -51,13 +82,11 @@ export const ProblemSolver: React.FC = () => {
 
   const handleProblemSubmit = async (data: any) => {
     try {
-      // Extract objective function coefficients
       const funcionObjetivo = Array.from(
         { length: config!.numVariables },
         (_, i) => Number(data[`objetivo${i}`] || 0)
       );
 
-      // Extract constraints
       const restricciones = Array.from(
         { length: config!.numRestricciones },
         (_, i) => ({
@@ -88,17 +117,40 @@ export const ProblemSolver: React.FC = () => {
 
   const handleSave = async () => {
     if (!config || !result) return;
+  
     try {
-      await saveProblem(
-        {
-          config,
-          datos: {
-            funcionObjetivo: [],
-            restricciones: [],
-          },
-        },
-        result
+      // Reconstruir los valores del formulario
+      const formValues = problemForm.getValues();
+  
+      const funcionObjetivo = Array.from(
+        { length: config.numVariables },
+        (_, i) => Number(formValues[`objetivo${i}`] || 0)
       );
+  
+      const restricciones = Array.from(
+        { length: config.numRestricciones },
+        (_, i) => ({
+          coeficientes: Array.from(
+            { length: config.numVariables },
+            (_, j) => Number(formValues[`restriccion${i}_${j}`] || 0)
+          ),
+          relacion: formValues[`relacion${i}`] || '<=',
+          valorDerecho: Number(formValues[`valorDerecho${i}`] || 0),
+        })
+      );
+  
+      const problem: Problem = {
+        config,
+        datos: {
+          funcionObjetivo,
+          restricciones,
+        },
+      };
+  
+      // Guardar el problema y el resultado
+      await saveProblem(problem, result);
+  
+      console.log('Problem saved successfully');
     } catch (error) {
       console.error('Error saving problem:', error);
     }
@@ -108,7 +160,7 @@ export const ProblemSolver: React.FC = () => {
     <div className="container mx-auto p-4 md:p-6">
       {step === 1 && (
         <form onSubmit={configForm.handleSubmit(handleConfigSubmit)} className="space-y-6">
-          <h2 className="text-2xl font-bold mb-4">Configuracion del sistema</h2>
+          <h2 className="text-2xl font-bold mb-4">Configuracion del Problema</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -128,7 +180,7 @@ export const ProblemSolver: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Numero de constantes
+                Numero de Restricciones
               </label>
               <input
                 type="number"
@@ -167,7 +219,7 @@ export const ProblemSolver: React.FC = () => {
 
       {step === 2 && config && (
         <form onSubmit={problemForm.handleSubmit(handleProblemSubmit)} className="space-y-6">
-          <h2 className="text-2xl font-bold mb-4">Definicio del problema</h2>
+          <h2 className="text-2xl font-bold mb-4">Definicion del Problema</h2>
 
           <div className="space-y-4">
             <h3 className="text-xl font-semibold">Funcion Objetivo</h3>
@@ -246,7 +298,7 @@ export const ProblemSolver: React.FC = () => {
         <div className="space-y-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold">Resultados</h2>
-            {user && (
+            {user && !selectedProblem && (
               <button
                 onClick={handleSave}
                 className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
@@ -260,10 +312,14 @@ export const ProblemSolver: React.FC = () => {
           <ResultsTable result={result} />
 
           <button
-            onClick={() => setStep(1)}
+            onClick={() => {
+              setStep(1);
+              setResult(null);
+              setConfig(null);
+            }}
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
           >
-            Problema nuevo
+            Nuevo Problema
           </button>
         </div>
       )}
